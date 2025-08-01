@@ -1,29 +1,36 @@
-import telebot
 import os
-from flask import Flask
-import threading
+import requests
+from fastapi import FastAPI, Request
 
-# Get the token from environment variable
-TOKEN = os.environ.get("BOT_TOKEN")
+BOT_TOKEN = "8234337661:AAHF2YQWwpnmZ6pvoaaEoRYgTlahGOBTafM"
+WEBHOOK_URL = os.environ.get("WEBHOOK_URL")  # Set this on Render dashboard
 
-bot = telebot.TeleBot(TOKEN)
+app = FastAPI()
+TELEGRAM_API = f"https://api.telegram.org/bot{BOT_TOKEN}"
 
-@bot.message_handler(func=lambda message: True)
-def handle_all(message):
-    bot.reply_to(message, "Hello, I’m active on TG now")
+@app.on_event("startup")
+async def set_webhook():
+    if WEBHOOK_URL:
+        url = f"{TELEGRAM_API}/setWebhook"
+        data = {"url": WEBHOOK_URL}
+        r = requests.post(url, data=data)
+        print("Webhook set:", r.json())
+    else:
+        print("WEBHOOK_URL not set")
 
-# Simple Flask server to keep alive
-app = Flask(__name__)
+@app.post("/")
+async def telegram_webhook(req: Request):
+    data = await req.json()
+    print("Received:", data)
+    
+    if "message" in data:
+        chat_id = data["message"]["chat"]["id"]
+        msg_text = data["message"].get("text", "")
 
-@app.route('/')
-def home():
-    return "Bot is alive!"
+        reply = f"💬 You said: {msg_text}"
+        requests.post(f"{TELEGRAM_API}/sendMessage", data={
+            "chat_id": chat_id,
+            "text": reply
+        })
 
-def run_web():
-    app.run(host="0.0.0.0", port=10000)
-
-# Start Flask server in background, bot in main thread
-if __name__ == "__main__":
-    threading.Thread(target=run_web).start()
-    print("Bot running...")
-    bot.polling(non_stop=True)
+    return {"ok": True}
