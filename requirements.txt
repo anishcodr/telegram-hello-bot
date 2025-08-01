@@ -1,2 +1,4 @@
-pyTelegramBotAPI==4.15.0
-Flask==3.0.3
+fastapi
+uvicorn
+requests
+gunicorn
