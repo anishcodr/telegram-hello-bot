@@ -1,36 +1,23 @@
-import os
-import requests
 from fastapi import FastAPI, Request
+import telebot
+import os
 
 BOT_TOKEN = "8234337661:AAHF2YQWwpnmZ6pvoaaEoRYgTlahGOBTafM"
-WEBHOOK_URL = os.environ.get("WEBHOOK_URL")  # Set this on Render dashboard
-
+bot = telebot.TeleBot(BOT_TOKEN)
 app = FastAPI()
-TELEGRAM_API = f"https://api.telegram.org/bot{BOT_TOKEN}"
-
-@app.on_event("startup")
-async def set_webhook():
-    if WEBHOOK_URL:
-        url = f"{TELEGRAM_API}/setWebhook"
-        data = {"url": WEBHOOK_URL}
-        r = requests.post(url, data=data)
-        print("Webhook set:", r.json())
-    else:
-        print("WEBHOOK_URL not set")
 
 @app.post("/")
-async def telegram_webhook(req: Request):
-    data = await req.json()
-    print("Received:", data)
-    
-    if "message" in data:
-        chat_id = data["message"]["chat"]["id"]
-        msg_text = data["message"].get("text", "")
-
-        reply = f"💬 You said: {msg_text}"
-        requests.post(f"{TELEGRAM_API}/sendMessage", data={
-            "chat_id": chat_id,
-            "text": reply
-        })
-
+async def webhook(request: Request):
+    data = await request.json()
+    update = telebot.types.Update.de_json(data)
+    bot.process_new_updates([update])
     return {"ok": True}
+
+@bot.message_handler(commands=['start', 'hello'])
+def send_welcome(message):
+    bot.send_message(message.chat.id, "✅ Hello, I'm active 24×7 via Render!")
+
+# Optional: Just to keep it running cleanly (no need for @app.on_event)
+@app.get("/")
+def root():
+    return {"status": "Bot is running."}
